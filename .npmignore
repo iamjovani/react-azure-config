@@ -1,0 +1,113 @@
+# Source files (only include built dist/)
+src/
+test-app/
+docs/
+scripts/
+
+# Development and build files
+*.tsbuildinfo
+tsconfig.json
+rollup.config.js
+jest.config.js
+.eslintrc.js
+.eslintrc.json
+.eslintignore
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__/
+__mocks__/
+coverage/
+.nyc_output/
+
+# Development scripts and configs
+test-runtime-config*.sh
+Dockerfile*
+docker-compose.yml
+.env*
+
+# Documentation that's not needed in package
+*.md
+!README.md
+!LICENSE.md
+
+# Development dependencies
+node_modules/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Cache files
+.cache/
+.parcel-cache/
+
+# Build artifacts not needed in package
+*.map
+*.d.ts.map
+
+# Test and demo files
+about.json
+example-usage.tsx
