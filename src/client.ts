@@ -20,16 +20,8 @@ export { RuntimeConfigurationClient } from './runtime-config-client';
 // Factory for runtime client
 export { createRuntimeConfigClient } from './runtime-config-client';
 
-// Application Insights integration (optional peer dependencies)
-export { AppInsightsProvider, useAppInsightsAvailable } from './client/insights/provider';
-export {
-  useAppInsights,
-  useTrackEvent,
-  useTrackException,
-  useTrackPageView,
-  useInsightsConfig,
-  useTrackPerformance
-} from './client/insights/hooks';
+// Application Insights integration is optional
+// Import from 'react-azure-config/client/insights' if needed
 
 // Types needed for client
 export type {
@@ -40,14 +32,4 @@ export type {
   ConfigApiResponse
 } from './types';
 
-// Application Insights types
-export type {
-  AppInsightsConfig,
-  AppInsightsContextValue,
-  AppInsightsProviderProps,
-  CustomEventData,
-  CustomExceptionData,
-  PageViewData,
-  TelemetryContext,
-  UseAppInsightsReturn
-} from './client/insights/types';
+// Application Insights types are in 'react-azure-config/client/insights'

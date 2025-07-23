@@ -111,7 +111,8 @@ module.exports = [
       file: 'dist/client.esm.js',
       format: 'es',
       sourcemap: !isProduction,
-      exports: 'named'
+      exports: 'named',
+      inlineDynamicImports: true
     }
   },
   
@@ -122,7 +123,32 @@ module.exports = [
       file: 'dist/client.cjs.js',
       format: 'cjs',
       sourcemap: !isProduction,
-      exports: 'named'
+      exports: 'named',
+      inlineDynamicImports: true
+    }
+  },
+  
+  // Client Insights entry - ESM
+  {
+    ...createConfig('src/client-insights.ts', clientExternal, 'client-insights', true),
+    output: {
+      file: 'dist/client-insights.esm.js',
+      format: 'es',
+      sourcemap: !isProduction,
+      exports: 'named',
+      inlineDynamicImports: true
+    }
+  },
+  
+  // Client Insights entry - CommonJS
+  {
+    ...createConfig('src/client-insights.ts', clientExternal, 'client-insights', true),
+    output: {
+      file: 'dist/client-insights.cjs.js',
+      format: 'cjs',
+      sourcemap: !isProduction,
+      exports: 'named',
+      inlineDynamicImports: true
     }
   },
   

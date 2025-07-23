@@ -1,14 +1,12 @@
 /**
- * React Azure Configuration Library - Main Entry (Client-Safe)
+ * React Azure Configuration Library - Main Entry (Server-Safe)
  * 
- * This is the main entry point that exports client-safe components and utilities.
+ * This is the main entry point that exports server-safe utilities and types.
+ * For client-side React hooks, import from 'react-azure-config/client'
  * For server-side functionality, import from 'react-azure-config/server'
  * 
- * @version 0.3.0
+ * @version 0.3.3
  */
-
-// Export everything from client entry point
-export * from './client';
 
 // Export shared utilities that work in both environments
 export { LocalConfigurationProvider } from './local-config';

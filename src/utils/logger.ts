@@ -8,43 +8,23 @@
  * @module utils/logger
  */
 
-// Import SSR-safe environment utilities
-// We need to do a try-catch import since this might be called from different contexts
-let getEnvVar: (key: string, defaultValue?: string) => string;
-let environment: any;
-
-try {
-  // Try importing from client utilities
-  const clientUtils = require('../client/ClientOnly');
-  getEnvVar = clientUtils.getEnvVar;
-  environment = clientUtils.environment;
-} catch {
-  // Fallback for server-side or environments where client utils aren't available
-  getEnvVar = (key: string, defaultValue: string = '') => {
-    try {
-      return process.env[key] || defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  };
-  environment = {
-    isServer: typeof window === 'undefined',
-    isClient: typeof window !== 'undefined',
-    isBrowser: typeof window !== 'undefined' && typeof window.document !== 'undefined',
-    isDevelopment: false,
-    isProduction: true,
-    isTest: false
-  };
-  
-  // Update environment flags based on available data
+// Universal environment utilities that work in both server and client contexts
+const getEnvVar = (key: string, defaultValue: string = ''): string => {
   try {
-    environment.isDevelopment = process.env.NODE_ENV === 'development';
-    environment.isProduction = process.env.NODE_ENV === 'production';
-    environment.isTest = process.env.NODE_ENV === 'test';
+    return process.env[key] || defaultValue;
   } catch {
-    // Keep defaults
+    return defaultValue;
   }
-}
+};
+
+const environment = {
+  isServer: typeof window === 'undefined',
+  isClient: typeof window !== 'undefined',
+  isBrowser: typeof window !== 'undefined' && typeof window.document !== 'undefined',
+  isDevelopment: getEnvVar('NODE_ENV') === 'development',
+  isProduction: getEnvVar('NODE_ENV') === 'production',
+  isTest: getEnvVar('NODE_ENV') === 'test'
+};
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 

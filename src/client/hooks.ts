@@ -32,7 +32,8 @@ export const useConfig = <T = ConfigurationValue>(): ConfigResult<T> => {
     loading: true,
     error: null,
     source: null,
-    lastUpdated: null
+    lastUpdated: null,
+    refresh: async () => {} // Will be overridden by actual refresh function
   });
 
   // Update local state when context changes
@@ -42,7 +43,8 @@ export const useConfig = <T = ConfigurationValue>(): ConfigResult<T> => {
       loading,
       error: error || null,
       source: client?.isUsingEmbeddedService() ? 'api' : 'azure',
-      lastUpdated: config ? Date.now() : null
+      lastUpdated: config ? Date.now() : null,
+      refresh: async () => {} // Will be overridden by actual refresh function
     });
   }, [config, loading, error, client]);
 

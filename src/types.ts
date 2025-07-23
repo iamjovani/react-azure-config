@@ -62,6 +62,7 @@ export interface ConfigResult<T = ConfigurationValue> {
   error: string | null;
   source: 'azure' | 'cache' | 'local' | 'environment' | 'api' | null;
   lastUpdated: number | null;
+  refresh: () => Promise<void>;
 }
 
 export interface CachedValue<T = unknown> {
