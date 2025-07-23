@@ -13,7 +13,6 @@ import React, { createContext, useContext, ReactNode, useEffect, useState } from
 // Internal modules - client-safe only
 import { RuntimeConfigurationClient } from '../runtime-config-client';
 import type { ConfigurationValue } from '../types';
-import { useIsClient, getEnvVar } from './ClientOnly';
 
 interface ConfigContextValue {
   client: RuntimeConfigurationClient | null;
@@ -38,44 +37,46 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({
   apiUrl = '/api/config',
   fetchOnMount = true
 }) => {
-  const [client, setClient] = useState<RuntimeConfigurationClient | null>(null);
+  // Initialize client immediately - works on both server and client
+  const [client] = useState<RuntimeConfigurationClient>(() => {
+    // SSR-safe environment variable access
+    const getEnvironment = (): string => {
+      try {
+        return process.env.NODE_ENV || 'production';
+      } catch {
+        return 'production';
+      }
+    };
+
+    return providedClient || new RuntimeConfigurationClient({
+      useEmbeddedService: true,
+      configServiceUrl: apiUrl,
+      environment: getEnvironment()
+    });
+  });
+
   const [config, setConfig] = useState<ConfigurationValue | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  
-  // Use SSR-safe client detection
-  const isClient = useIsClient();
 
+  // Fetch configuration (only runs on client due to useEffect)
   useEffect(() => {
-    // Use SSR-safe environment variable access
-    const environment = getEnvVar('NODE_ENV', 'production');
-    
-    // Use provided client or create a simple runtime client
-    const configClient = providedClient || new RuntimeConfigurationClient({
-      useEmbeddedService: true,
-      configServiceUrl: apiUrl,
-      environment
-    });
-    
-    setClient(configClient);
+    if (!fetchOnMount) return;
 
-    // Only fetch on client side to prevent hydration mismatches
-    if (fetchOnMount && isClient) {
-      setLoading(true);
-      configClient.getConfiguration()
-        .then((configData) => {
-          setConfig(configData);
-          setError(undefined);
-        })
-        .catch((err) => {
-          console.error('Failed to load configuration:', err);
-          setError(err instanceof Error ? err.message : 'Failed to load configuration');
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-  }, [providedClient, apiUrl, fetchOnMount, isClient]);
+    setLoading(true);
+    client.getConfiguration()
+      .then((configData) => {
+        setConfig(configData);
+        setError(undefined);
+      })
+      .catch((err) => {
+        console.error('Failed to load configuration:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load configuration');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [client, fetchOnMount]);
 
   const value: ConfigContextValue = {
     client,

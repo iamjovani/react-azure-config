@@ -16,7 +16,6 @@ import { DEFAULT_CONSTANTS } from './constants';
 export class ConfigurationCache {
   private memoryCache = new Map<string, CachedValue>();
   private config: CacheConfig;
-  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.config = {
@@ -26,7 +25,7 @@ export class ConfigurationCache {
       ...config
     };
 
-    this.startCleanupInterval();
+    // Auto-cleanup on get/set operations instead of interval
   }
 
   get<T = unknown>(key: string): T | null {
@@ -151,6 +150,9 @@ export class ConfigurationCache {
   }
 
   private evictOldestEntriesIfNeeded(): void {
+    // Clean expired entries first
+    this.cleanExpiredEntries();
+    
     if (this.memoryCache.size > this.config.maxSize) {
       const entriesToRemove = this.memoryCache.size - this.config.maxSize;
       const keysIterator = this.memoryCache.keys();
@@ -164,11 +166,7 @@ export class ConfigurationCache {
     }
   }
 
-  private startCleanupInterval(): void {
-    this.cleanupInterval = setInterval(() => {
-      this.cleanExpiredEntries();
-    }, DEFAULT_CONSTANTS.CACHE_CLEANUP_INTERVAL);
-  }
+  // Removed interval-based cleanup to eliminate unused variable
 
   private isLocalStorageAvailable(): boolean {
     try {

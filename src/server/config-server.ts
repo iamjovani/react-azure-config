@@ -14,6 +14,7 @@ import cors from 'cors';
 // Internal modules
 import { AzureConfigurationClient } from './azure-client';
 import { LocalConfigurationProvider } from '../local-config';
+import { ConfigurationCache } from '../cache';
 import { getDefaultConfiguration, getNestedProperty } from '../utils/config-utils';
 import { logger } from '../utils/logger';
 import { DEFAULT_CONSTANTS, CONFIG_SOURCES } from '../constants';
@@ -24,6 +25,8 @@ export interface ConfigServerOptions extends AzureConfigOptions {
   corsOrigin?: string | string[];
   sources?: string[];
   enableHealthCheck?: boolean;
+  enableCaching?: boolean;
+  cacheTtl?: number;
 }
 
 export class ConfigurationServer {
@@ -31,6 +34,7 @@ export class ConfigurationServer {
   private server: import('http').Server | null = null;
   private azureClient: AzureConfigurationClient | null = null;
   private localProvider: LocalConfigurationProvider | null = null;
+  private cache: ConfigurationCache | null = null;
   private options: ConfigServerOptions;
   private isRunning = false;
 
@@ -40,6 +44,8 @@ export class ConfigurationServer {
       corsOrigin: DEFAULT_CONSTANTS.DEFAULT_CORS_ORIGINS,
       sources: [CONFIG_SOURCES.AZURE, CONFIG_SOURCES.ENVIRONMENT, CONFIG_SOURCES.LOCAL, CONFIG_SOURCES.DEFAULTS],
       enableHealthCheck: true,
+      enableCaching: true,
+      cacheTtl: DEFAULT_CONSTANTS.MEMORY_CACHE_TTL,
       ...options
     };
 
@@ -47,6 +53,7 @@ export class ConfigurationServer {
     this.setupMiddleware();
     this.setupRoutes();
     this.initializeClients();
+    this.initializeCache();
   }
 
   private setupMiddleware(): void {
@@ -60,7 +67,7 @@ export class ConfigurationServer {
   }
 
   private setupRoutes(): void {
-    this.app.get('/config', async (req, res) => {
+    this.app.get('/config', async (_req, res) => {
       try {
         const config = await this.getConfiguration();
         const response: ConfigApiResponse<ConfigurationValue> = {
@@ -106,7 +113,7 @@ export class ConfigurationServer {
       }
     });
 
-    this.app.post('/refresh', async (req, res) => {
+    this.app.post('/refresh', async (_req, res) => {
       try {
         await this.refreshConfiguration();
         const response: ConfigApiResponse<{ message: string }> = {
@@ -126,7 +133,7 @@ export class ConfigurationServer {
     });
 
     if (this.options.enableHealthCheck) {
-      this.app.get('/health', async (req, res) => {
+      this.app.get('/health', async (_req, res) => {
         try {
           const health = await this.getHealthStatus();
           const statusCode = health.status === 'healthy' ? 200 : 503;
@@ -142,7 +149,7 @@ export class ConfigurationServer {
     }
 
     // Info endpoint - shows active sources and configuration
-    this.app.get('/info', (req, res) => {
+    this.app.get('/info', (_req, res) => {
       res.json({
         sources: this.options.sources,
         activeSource: this.getActiveSource(),
@@ -168,7 +175,27 @@ export class ConfigurationServer {
     }
   }
 
+  private initializeCache(): void {
+    if (this.options.enableCaching) {
+      this.cache = new ConfigurationCache({
+        ttl: this.options.cacheTtl || DEFAULT_CONSTANTS.MEMORY_CACHE_TTL,
+        storage: ['memory'] // Server-side caching uses memory only
+      });
+      logger.info('Configuration caching enabled', { ttl: this.options.cacheTtl });
+    }
+  }
+
   private async getConfiguration(): Promise<ConfigurationValue> {
+    const cacheKey = 'full-configuration';
+    
+    // Try cache first
+    if (this.cache) {
+      const cached = this.cache.get<ConfigurationValue>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const sources = this.options.sources || ['local'];
     
     for (const source of sources) {
@@ -178,6 +205,10 @@ export class ConfigurationServer {
             if (this.azureClient) {
               const config = await this.azureClient.getConfiguration();
               if (config && Object.keys(config).length > 0) {
+                // Cache the result
+                if (this.cache) {
+                  this.cache.set(cacheKey, config);
+                }
                 return config;
               }
             }
@@ -188,13 +219,22 @@ export class ConfigurationServer {
             if (this.localProvider) {
               const config = this.localProvider.getConfiguration();
               if (config && Object.keys(config).length > 0) {
+                // Cache the result
+                if (this.cache) {
+                  this.cache.set(cacheKey, config);
+                }
                 return config;
               }
             }
             break;
             
           case CONFIG_SOURCES.DEFAULTS:
-            return getDefaultConfiguration(this.options.environment);
+            const defaultConfig = getDefaultConfiguration(this.options.environment);
+            // Cache the result
+            if (this.cache) {
+              this.cache.set(cacheKey, defaultConfig);
+            }
+            return defaultConfig;
         }
       } catch (error) {
         logger.warn(`Failed to load configuration from ${source}:`, error);
@@ -202,15 +242,43 @@ export class ConfigurationServer {
       }
     }
 
-    return getDefaultConfiguration(this.options.environment);
+    const fallbackConfig = getDefaultConfiguration(this.options.environment);
+    // Cache the fallback result
+    if (this.cache) {
+      this.cache.set(cacheKey, fallbackConfig);
+    }
+    return fallbackConfig;
   }
 
   private async getConfigValue(key: string): Promise<any> {
+    const cacheKey = `config-value:${key}`;
+    
+    // Try cache first
+    if (this.cache) {
+      const cached = this.cache.get(cacheKey);
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
     const config = await this.getConfiguration();
-    return getNestedProperty(config, key);
+    const value = getNestedProperty(config, key);
+    
+    // Cache the individual value
+    if (this.cache) {
+      this.cache.set(cacheKey, value);
+    }
+    
+    return value;
   }
 
   private async refreshConfiguration(): Promise<void> {
+    // Clear cache first
+    if (this.cache) {
+      this.cache.clear();
+      logger.info('Configuration cache cleared');
+    }
+
     if (this.azureClient) {
       await this.azureClient.refreshConfiguration();
     }
@@ -219,6 +287,8 @@ export class ConfigurationServer {
       // Reinitialize local provider to pick up changes
       this.localProvider = new LocalConfigurationProvider();
     }
+    
+    logger.info('Configuration refreshed from all sources');
   }
 
   private getActiveSource(): string {
@@ -232,9 +302,31 @@ export class ConfigurationServer {
     const health: any = {
       status: 'healthy',
       checks: {},
+      cache: {
+        enabled: !!this.cache,
+        size: 0
+      },
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
       timestamp: Date.now()
     };
 
+    // Check cache health
+    if (this.cache) {
+      try {
+        // Test cache functionality
+        const testKey = '_health_check_test';
+        this.cache.set(testKey, 'test');
+        const testValue = this.cache.get(testKey);
+        health.checks.cache = testValue === 'test' ? 'healthy' : 'unhealthy';
+        // Get cache info (size is not publicly available)
+      } catch (error) {
+        health.checks.cache = 'unhealthy';
+        health.status = 'degraded';
+      }
+    }
+
+    // Check Azure client
     if (this.azureClient) {
       try {
         await this.azureClient.getConfiguration();
@@ -245,6 +337,7 @@ export class ConfigurationServer {
       }
     }
 
+    // Check local provider
     if (this.localProvider) {
       try {
         const localConfig = this.localProvider.getConfiguration();

@@ -177,6 +177,29 @@ export class RuntimeConfigurationClient {
   isUsingEmbeddedService(): boolean {
     return this.options.useEmbeddedService || false;
   }
+
+  async checkServiceHealth(): Promise<any> {
+    if (this.options.useEmbeddedService) {
+      try {
+        const response = await this.fetchFromService('/health');
+        return response.data;
+      } catch (error: any) {
+        return {
+          status: 'unhealthy',
+          error: error.message
+        };
+      }
+    } else {
+      return {
+        status: 'not-applicable',
+        reason: 'Direct mode'
+      };
+    }
+  }
+
+  getServiceUrl(): string {
+    return this.serviceUrl;
+  }
 }
 
 // Factory function for easy instantiation

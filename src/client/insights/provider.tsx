@@ -11,7 +11,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
 import { logger } from '../../utils/logger';
-import { useIsClient, environment } from '../ClientOnly';
 import type { 
   AppInsightsContextValue, 
   AppInsightsProviderProps, 
@@ -36,8 +35,12 @@ export const AppInsightsProvider: React.FC<AppInsightsProviderProps> = ({
   config: providedConfig,
   connectionString: overrideConnectionString 
 }) => {
-  // SSR-safe client detection
-  const isClient = useIsClient();
+  // SSR-safe environment detection
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   // State for Application Insights instances
   const [appInsights, setAppInsights] = useState<ApplicationInsights | null>(null);
@@ -55,7 +58,7 @@ export const AppInsightsProvider: React.FC<AppInsightsProviderProps> = ({
    */
   const initializeAppInsights = useCallback(async (connString: string, config: AppInsightsConfig) => {
     // SSR Guard: Only initialize on client side
-    if (environment.isServer) {
+    if (typeof window === 'undefined') {
       logger.debug('Skipping Application Insights initialization during SSR');
       return;
     }
@@ -78,7 +81,10 @@ export const AppInsightsProvider: React.FC<AppInsightsProviderProps> = ({
       ]);
 
       if (!ApplicationInsights) {
-        throw new Error('Application Insights packages not installed. Install @microsoft/applicationinsights-web and @microsoft/applicationinsights-react-js');
+        const errorMsg = 'Application Insights packages not installed. Install @microsoft/applicationinsights-web and @microsoft/applicationinsights-react-js';
+        setError(errorMsg); 
+        logger.debug(errorMsg);
+        return; // Gracefully exit instead of throwing
       }
 
       // Create React plugin if enabled
@@ -107,7 +113,7 @@ export const AppInsightsProvider: React.FC<AppInsightsProviderProps> = ({
       appInsightsInstance.loadAppInsights();
       
       // SSR Guard: Only track page view if we have window object
-      if (environment.isBrowser) {
+      if (typeof window !== 'undefined') {
         appInsightsInstance.trackPageView();
       }
 
@@ -209,12 +215,11 @@ export const useAppInsightsContext = (): AppInsightsContextValue => {
  * SSR-safe: only checks availability on client side.
  */
 export const useAppInsightsAvailable = (): boolean => {
-  const isClient = useIsClient();
   const [isAvailable, setIsAvailable] = useState<boolean>(false);
 
   useEffect(() => {
-    // SSR Guard: Only check availability on client side
-    if (!isClient) {
+    // SSR Guard: Only check availability on client side  
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -235,7 +240,7 @@ export const useAppInsightsAvailable = (): boolean => {
     };
 
     checkAvailability();
-  }, [isClient]);
+  }, []);
 
   return isAvailable;
 };

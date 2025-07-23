@@ -5,7 +5,7 @@
  * For client-side React hooks, import from 'react-azure-config/client'
  * For server-side functionality, import from 'react-azure-config/server'
  * 
- * @version 0.3.3
+ * @version 0.3.4
  */
 
 // Export shared utilities that work in both environments

@@ -1,0 +1,25 @@
+html {
+  font-family: system-ui, sans-serif;
+  padding: 2rem;
+}
+
+.error {
+  color: red;
+  background: #ffe6e6;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.success {
+  color: green;
+  background: #e6ffe6;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.loading {
+  color: blue;
+  padding: 1rem;
+}

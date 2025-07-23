@@ -1,6 +1,6 @@
 {
   "name": "react-azure-config",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "🚀 Solve React's build-time environment variable problem! Load configuration at runtime with embedded Express server. Same Docker image works across dev/staging/production. Azure App Configuration + Key Vault + Application Insights integration included.",
   "author": "Jovani Samuels <jovani@iamjovani.com>",
   "contributors": [

@@ -33,8 +33,6 @@ export class AzureConfigurationClient {
   private keyVaultConfig: KeyVaultConfig;
   private credential: TokenCredential | null = null;
   private configurationLoaded = false;
-  private lastConfigLoad: number | null = null;
-  private refreshTimer: NodeJS.Timeout | null = null;
 
   constructor(options: AzureConfigOptions) {
     this.options = {
