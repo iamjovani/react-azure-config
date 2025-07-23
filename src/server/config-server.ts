@@ -13,11 +13,11 @@ import cors from 'cors';
 
 // Internal modules
 import { AzureConfigurationClient } from './azure-client';
-import { LocalConfigurationProvider } from './local-config';
-import { getDefaultConfiguration, getNestedProperty } from './utils/config-utils';
-import { logger } from './utils/logger';
-import { DEFAULT_CONSTANTS, CONFIG_SOURCES } from './constants';
-import type { AzureConfigOptions, ConfigurationValue, ConfigApiResponse } from './types';
+import { LocalConfigurationProvider } from '../local-config';
+import { getDefaultConfiguration, getNestedProperty } from '../utils/config-utils';
+import { logger } from '../utils/logger';
+import { DEFAULT_CONSTANTS, CONFIG_SOURCES } from '../constants';
+import type { AzureConfigOptions, ConfigurationValue, ConfigApiResponse } from '../types';
 
 export interface ConfigServerOptions extends AzureConfigOptions {
   port?: number;

@@ -14,13 +14,13 @@ import { SecretClient } from '@azure/keyvault-secrets';
 import type { TokenCredential } from '@azure/core-auth';
 
 // Internal modules
-import { ConfigurationCache } from './cache';
-import { LocalConfigurationProvider } from './local-config';
-import { logger } from './utils/logger';
-import { setNestedProperty, getDefaultConfiguration, delay, isKeyVaultReference } from './utils/config-utils';
-import { handleError, ErrorType } from './utils/error-handler';
-import { DEFAULT_CONSTANTS, CONFIG_SOURCES, AUTH_TYPES, REFRESH_STRATEGIES } from './constants';
-import type { AzureConfigOptions, ConfigurationValue, KeyVaultConfig } from './types';
+import { ConfigurationCache } from '../cache';
+import { LocalConfigurationProvider } from '../local-config';
+import { logger } from '../utils/logger';
+import { setNestedProperty, getDefaultConfiguration, delay, isKeyVaultReference } from '../utils/config-utils';
+import { handleError, ErrorType } from '../utils/error-handler';
+import { DEFAULT_CONSTANTS, CONFIG_SOURCES, AUTH_TYPES, REFRESH_STRATEGIES } from '../constants';
+import type { AzureConfigOptions, ConfigurationValue, KeyVaultConfig } from '../types';
 
 export class AzureConfigurationClient {
   private client: AppConfigurationClient | null = null;
@@ -33,7 +33,8 @@ export class AzureConfigurationClient {
   private keyVaultConfig: KeyVaultConfig;
   private credential: TokenCredential | null = null;
   private configurationLoaded = false;
-  // Note: refreshTimer and lastConfigLoad removed as they weren't being used
+  private lastConfigLoad: number | null = null;
+  private refreshTimer: NodeJS.Timeout | null = null;
 
   constructor(options: AzureConfigOptions) {
     this.options = {

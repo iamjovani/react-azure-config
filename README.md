@@ -33,6 +33,17 @@ npm install react-azure-config
 yarn add react-azure-config
 ```
 
+## 🌟 Framework Compatibility
+
+**Full SSR (Server-Side Rendering) Support:**
+- ✅ **Next.js** - App Router & Pages Router
+- ✅ **Remix** - Hydration-safe components  
+- ✅ **Gatsby** - SSG and SSR modes
+- ✅ **Create React App** - Standard SPA mode
+- ✅ **Vite** - All deployment targets
+
+**Zero hydration errors** - Components render consistently between server and client, eliminating the common "Cannot read properties of undefined" errors in SSR applications.
+
 ## 🚀 Quick Start
 
 ### Basic Usage (Environment Variables Only)
@@ -96,9 +107,9 @@ REACT_APP_API_TIMEOUT=25000
 REACT_APP_FEATURES_DARK_MODE=false
 ```
 
-### Azure App Configuration Integration
+### Azure App Configuration + Application Insights Integration
 
-Connect to Azure App Configuration for centralized configuration management:
+Connect to Azure App Configuration for centralized configuration management with automatic Application Insights telemetry:
 
 ```tsx
 import React from 'react';
@@ -175,6 +186,227 @@ AZURE_TENANT_ID=your-tenant-id
 # Or use Managed Identity (recommended for Azure deployments)
 # No secrets needed - authentication handled by Azure
 ```
+
+### Next.js SSR Example
+
+**Perfect for Next.js App Router and Pages Router:**
+
+```tsx
+// app/layout.tsx (App Router) or pages/_app.tsx (Pages Router)
+import { ConfigProvider } from 'react-azure-config';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <ConfigProvider
+          options={{
+            environment: process.env.NODE_ENV || 'development',
+            useEmbeddedService: true,
+            sources: ['environment', 'defaults']
+          }}
+        >
+          {children}
+        </ConfigProvider>
+      </body>
+    </html>
+  );
+}
+
+// app/page.tsx or pages/index.tsx
+import { useConfigValue } from 'react-azure-config';
+
+export default function HomePage() {
+  // These load at runtime, not build time - perfect for SSR!
+  const apiUrl = useConfigValue('api.url', 'https://localhost:3000');
+  const appName = useConfigValue('app.name', 'My App');
+  
+  return (
+    <div>
+      <h1>{appName}</h1>
+      <p>API: {apiUrl}</p>
+      {/* Zero hydration errors - server and client render identically */}
+    </div>
+  );
+}
+```
+
+## 📊 Application Insights Integration
+
+**NEW in v0.3.2**: Full SSR support + Automatic Application Insights telemetry with Key Vault reference support!
+
+### Automatic Initialization (Just like .NET!)
+
+Store your Application Insights connection string as a **Key Vault reference** in Azure App Configuration - it gets automatically resolved and initialized:
+
+```tsx
+import React from 'react';
+import { ConfigProvider, useAppInsights, useTrackEvent } from 'react-azure-config';
+
+function App() {
+  return (
+    <ConfigProvider
+      apiUrl="/api/config"
+      // Application Insights auto-initializes when connection string is found!
+      enableAutoInsights={true}
+      applicationInsights={{
+        enableAutoRouteTracking: true,
+        enableReactPlugin: true
+      }}
+    >
+      <Dashboard />
+    </ConfigProvider>
+  );
+}
+
+function Dashboard() {
+  const { trackEvent, isReady } = useAppInsights();
+  const trackUserAction = useTrackEvent();
+
+  const handleButtonClick = () => {
+    // Simple event tracking
+    trackUserAction('dashboard_button_clicked', { 
+      section: 'main',
+      timestamp: Date.now() 
+    });
+    
+    // Advanced event tracking  
+    trackEvent({
+      name: 'user_interaction',
+      properties: { component: 'Dashboard', action: 'button_click' },
+      measurements: { value: 1 }
+    });
+  };
+
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <p>Application Insights Status: {isReady ? 'Ready' : 'Not Ready'}</p>
+      <button onClick={handleButtonClick}>Track This Click!</button>
+    </div>
+  );
+}
+```
+
+### Azure Configuration Setup (Same as .NET Pattern!)
+
+**Azure App Configuration:**
+```
+ApplicationInsights:ConnectionString = @Microsoft.KeyVault(SecretUri=https://myvault.vault.azure.net/secrets/appinsights-connection/)
+ApplicationInsights:EnableAutoRouteTracking = true  
+ApplicationInsights:EnableCookiesUsage = false
+ApplicationInsights:EnableRequestHeaderTracking = true
+ApplicationInsights:EnableResponseHeaderTracking = false
+```
+
+**Environment Variables (Same as .NET):**
+```bash
+# Service Principal authentication (same as .NET DefaultAzureCredential pattern)
+AZURE_CLIENT_ID=your-service-principal-id
+AZURE_CLIENT_SECRET=your-service-principal-secret  
+AZURE_TENANT_ID=your-tenant-id
+AZURE_APP_CONFIG_ENDPOINT=https://your-config.azconfig.io
+
+# Runtime environment 
+REACT_APP_ENVIRONMENT=production
+```
+
+**Key Vault Secret (`appinsights-connection`):**
+```
+InstrumentationKey=12345678-1234-1234-1234-123456789abc;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=12345678-1234-1234-1234-123456789abc
+```
+
+### Advanced Telemetry Tracking
+
+```tsx
+import React, { useEffect } from 'react';
+import { 
+  useAppInsights, 
+  useTrackException, 
+  useTrackPerformance,
+  useInsightsConfig 
+} from 'react-azure-config';
+
+function AdvancedComponent() {
+  const { trackEvent, setContext, isReady } = useAppInsights();
+  const trackException = useTrackException();
+  const { createTimer, trackCounter } = useTrackPerformance();
+  const insightsConfig = useInsightsConfig();
+
+  useEffect(() => {
+    if (isReady) {
+      // Set user context for all telemetry
+      setContext({
+        userId: 'user-123',
+        appVersion: '1.0.0',
+        environment: 'production',
+        properties: { 
+          feature: 'advanced-dashboard',
+          experiment: 'a/b-test-v1' 
+        }
+      });
+    }
+  }, [isReady, setContext]);
+
+  const performExpensiveOperation = async () => {
+    // Track performance timing
+    const timer = createTimer('expensive_operation');
+    
+    try {
+      // Simulate expensive operation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Track successful completion
+      trackCounter('operation_success');
+      
+    } catch (error) {
+      // Track exceptions automatically
+      trackException(error as Error, { 
+        operation: 'expensive_operation',
+        context: 'user_initiated' 
+      });
+    } finally {
+      // Stop timer and track duration
+      const duration = timer.stop({ 
+        operation: 'expensive_operation',
+        status: 'completed' 
+      });
+      console.log(`Operation took ${duration}ms`);
+    }
+  };
+
+  return (
+    <div>
+      <h2>Advanced Telemetry</h2>
+      <p>Insights Ready: {isReady ? '✅' : '❌'}</p>
+      <p>Connection String Configured: {insightsConfig.isConfigured ? '✅' : '❌'}</p>
+      
+      <button onClick={performExpensiveOperation}>
+        Run Tracked Operation
+      </button>
+      
+      <button onClick={() => trackEvent({
+        name: 'feature_used',
+        properties: { feature: 'advanced-telemetry' }
+      })}>
+        Track Feature Usage
+      </button>
+    </div>
+  );
+}
+```
+
+### Installation (Optional Peer Dependencies)
+
+Application Insights integration requires these optional packages:
+
+```bash
+npm install @microsoft/applicationinsights-web @microsoft/applicationinsights-react-js
+# or
+yarn add @microsoft/applicationinsights-web @microsoft/applicationinsights-react-js
+```
+
+**Without these packages installed**, the library works normally but Application Insights features are disabled.
 
 ## 🐳 Docker Integration
 
@@ -330,6 +562,8 @@ function ConfigStatus() {
 
 ### Hooks
 
+#### Configuration Hooks
+
 | Hook | Description | Parameters |
 |------|-------------|------------|
 | `useConfig<T>()` | Load full configuration object | None |
@@ -337,6 +571,18 @@ function ConfigStatus() {
 | `useFeature(name)` | Load feature flag | `name: string` |
 | `useEnv<T>(key, defaultValue?)` | Load environment variable with transformation | `key: string`, `defaultValue?: T` |
 | `useConfigProvider()` | Server management and health | None |
+
+#### Application Insights Hooks (NEW in v0.3.0)
+
+| Hook | Description | Parameters |
+|------|-------------|------------|
+| `useAppInsights()` | Primary Application Insights hook with all tracking methods | None |
+| `useTrackEvent()` | Simple event tracking | `eventName: string`, `properties?: object` |
+| `useTrackException()` | Exception/error tracking | `error: Error`, `context?: object` |
+| `useTrackPageView()` | Page view tracking (auto + manual) | `pageName?: string`, `properties?: object` |
+| `useTrackPerformance()` | Performance timing and metrics | None |
+| `useInsightsConfig()` | Get current Application Insights configuration | None |
+| `useAppInsightsAvailable()` | Check if App Insights packages are installed | None |
 
 ### Configuration Options
 
@@ -381,6 +627,26 @@ interface AzureConfigOptions {
   
   // Logging
   logLevel?: 'debug' | 'info' | 'warn' | 'error' | 'silent';
+}
+
+interface ConfigProviderProps {
+  children: ReactNode;
+  client?: RuntimeConfigurationClient;
+  apiUrl?: string;
+  fetchOnMount?: boolean;
+  
+  // Application Insights (NEW in v0.3.0)
+  applicationInsights?: {
+    connectionString?: string; // Override connection string
+    autoInitialize?: boolean; // Auto-initialize when connection string found
+    enableReactPlugin?: boolean; // Enable React-specific tracking
+    enableAutoRouteTracking?: boolean; // Auto-track route changes
+    enableCookiesUsage?: boolean; // Enable cookies for user tracking
+    enableRequestHeaderTracking?: boolean; // Track request headers
+    enableResponseHeaderTracking?: boolean; // Track response headers
+    additionalConfig?: object; // Additional Application Insights config
+  };
+  enableAutoInsights?: boolean; // Enable automatic Application Insights initialization
 }
 ```
 

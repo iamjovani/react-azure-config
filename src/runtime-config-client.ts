@@ -8,7 +8,7 @@
  */
 
 // Internal modules
-import { AzureConfigurationClient } from './azure-client';
+import { AzureConfigurationClient } from './server/azure-client';
 import { ConfigurationCache } from './cache';
 import { getDefaultConfiguration, getNestedProperty } from './utils/config-utils';
 import { logger } from './utils/logger';

@@ -3,20 +3,32 @@
  * 
  * This module provides configurable constants that can be overridden via environment variables
  * for production deployments while maintaining sensible defaults for development.
+ * SSR-safe: Uses try-catch for environment variable access to prevent hydration issues.
  * 
  * @module constants
  */
+
+// SSR-safe environment variable getter
+const safeGetEnv = (key: string, defaultValue: string = ''): string => {
+  try {
+    return process.env[key] || defaultValue;
+  } catch {
+    // Fallback for environments where process is not available
+    return defaultValue;
+  }
+};
+
 const getEnvNumber = (key: string, defaultValue: number): number => {
-  const value = process.env[key];
+  const value = safeGetEnv(key);
   return value ? parseInt(value, 10) : defaultValue;
 };
 
 const getEnvString = (key: string, defaultValue: string): string => {
-  return process.env[key] || defaultValue;
+  return safeGetEnv(key, defaultValue);
 };
 
 const getEnvArray = (key: string, defaultValue: string[]): string[] => {
-  const value = process.env[key];
+  const value = safeGetEnv(key);
   return value ? value.split(',').map(s => s.trim()) : defaultValue;
 };
 
@@ -85,13 +97,13 @@ export const ENVIRONMENT = {
 } as const;
 
 export const isProduction = (): boolean => {
-  return process.env.NODE_ENV === ENVIRONMENT.PRODUCTION;
+  return safeGetEnv('NODE_ENV') === ENVIRONMENT.PRODUCTION;
 };
 
 export const isDevelopment = (): boolean => {
-  return process.env.NODE_ENV === ENVIRONMENT.DEVELOPMENT;
+  return safeGetEnv('NODE_ENV') === ENVIRONMENT.DEVELOPMENT;
 };
 
 export const isTest = (): boolean => {
-  return process.env.NODE_ENV === ENVIRONMENT.TEST;
+  return safeGetEnv('NODE_ENV') === ENVIRONMENT.TEST;
 };

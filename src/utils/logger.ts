@@ -3,9 +3,48 @@
  * 
  * Configurable logging system with level-based filtering, timestamps,
  * and color support for development environments.
+ * SSR-safe: Uses environment detection utilities to prevent hydration issues.
  * 
  * @module utils/logger
  */
+
+// Import SSR-safe environment utilities
+// We need to do a try-catch import since this might be called from different contexts
+let getEnvVar: (key: string, defaultValue?: string) => string;
+let environment: any;
+
+try {
+  // Try importing from client utilities
+  const clientUtils = require('../client/ClientOnly');
+  getEnvVar = clientUtils.getEnvVar;
+  environment = clientUtils.environment;
+} catch {
+  // Fallback for server-side or environments where client utils aren't available
+  getEnvVar = (key: string, defaultValue: string = '') => {
+    try {
+      return process.env[key] || defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  };
+  environment = {
+    isServer: typeof window === 'undefined',
+    isClient: typeof window !== 'undefined',
+    isBrowser: typeof window !== 'undefined' && typeof window.document !== 'undefined',
+    isDevelopment: false,
+    isProduction: true,
+    isTest: false
+  };
+  
+  // Update environment flags based on available data
+  try {
+    environment.isDevelopment = process.env.NODE_ENV === 'development';
+    environment.isProduction = process.env.NODE_ENV === 'production';
+    environment.isTest = process.env.NODE_ENV === 'test';
+  } catch {
+    // Keep defaults
+  }
+}
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
@@ -21,20 +60,20 @@ class Logger {
 
   constructor(config: Partial<LoggerConfig> = {}) {
     const defaultLevel = this.getDefaultLogLevel();
-    const defaultPrefix = process.env.LOG_PREFIX || '[ReactAzureConfig]';
+    const defaultPrefix = getEnvVar('LOG_PREFIX', '[ReactAzureConfig]');
     
     this.config = {
-      level: (process.env.LOG_LEVEL as LogLevel) || defaultLevel,
+      level: (getEnvVar('LOG_LEVEL') as LogLevel) || defaultLevel,
       prefix: defaultPrefix,
-      enableTimestamp: process.env.NODE_ENV === 'production',
-      enableColors: process.env.NODE_ENV !== 'production',
+      enableTimestamp: environment.isProduction,
+      enableColors: !environment.isProduction,
       ...config
     };
   }
   
   private getDefaultLogLevel(): LogLevel {
-    if (process.env.NODE_ENV === 'production') return 'warn';
-    if (process.env.NODE_ENV === 'test') return 'silent';
+    if (environment.isProduction) return 'warn';
+    if (environment.isTest) return 'silent';
     return 'debug';
   }
   

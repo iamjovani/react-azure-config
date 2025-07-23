@@ -36,9 +36,14 @@ export class LocalConfigurationProvider {
 
   private detectAndLoadConfiguration(): ConfigurationValue {
     if (this.isNodeEnvironment()) {
-      const config = this.transformEnvToConfig(process.env);
-      logger.debug('Loaded configuration from process.env');
-      return config;
+      try {
+        const config = this.transformEnvToConfig(process.env);
+        logger.debug('Loaded configuration from process.env');
+        return config;
+      } catch (error) {
+        logger.warn('Failed to access process.env during SSR, using defaults');
+        return getDefaultConfiguration();
+      }
     }
     
     if (this.isBrowserEnvironment()) {
@@ -64,7 +69,12 @@ export class LocalConfigurationProvider {
   }
 
   private isNodeEnvironment(): boolean {
-    return typeof process !== 'undefined' && !!process.env;
+    try {
+      return typeof process !== 'undefined' && !!process.env;
+    } catch {
+      // SSR safety: process might not be available in some environments
+      return false;
+    }
   }
 
   private isBrowserEnvironment(): boolean {
