@@ -7,6 +7,8 @@ module.exports = {
     '^@azure/identity$': '<rootDir>/src/__mocks__/@azure/identity.js',
     '^@azure/core-auth$': '<rootDir>/src/__mocks__/@azure/core-auth.js',
     '^../server/config-server$': '<rootDir>/src/__mocks__/config-server.ts',
+    '^../server/azure-client$': '<rootDir>/src/__mocks__/azure-client.ts',
+    '^../runtime-config-client$': '<rootDir>/src/__mocks__/runtime-config-client.ts',
     '^../utils/config-utils$': '<rootDir>/src/__mocks__/config-utils.ts',
   },
   testMatch: [

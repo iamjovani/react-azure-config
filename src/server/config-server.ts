@@ -756,6 +756,14 @@ export class ConfigurationServer {
   public getPort(): number {
     return this.options.port || DEFAULT_CONSTANTS.CONFIG_SERVER_PORT;
   }
+
+  /**
+   * Get the Express application instance for testing purposes
+   * @returns Express application instance
+   */
+  public getExpressApp(): express.Application {
+    return this.app;
+  }
 }
 
 // Factory function for easy instantiation

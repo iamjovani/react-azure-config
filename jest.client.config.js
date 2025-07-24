@@ -9,7 +9,8 @@ module.exports = {
     '^@azure/app-configuration$': '<rootDir>/src/__mocks__/@azure/app-configuration.js',
     '^@azure/identity$': '<rootDir>/src/__mocks__/@azure/identity.js',
     '^@azure/core-auth$': '<rootDir>/src/__mocks__/@azure/core-auth.js',
-    '^fs$': '<rootDir>/src/__mocks__/fs.js'
+    '^fs$': '<rootDir>/src/__mocks__/fs.js',
+    '^./runtime-config-client$': '<rootDir>/src/__mocks__/runtime-config-client.ts'
   },
   testMatch: [
     '<rootDir>/src/client/**/*.test.ts',
