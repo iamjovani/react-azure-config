@@ -1,7 +1,7 @@
 {
   "name": "react-azure-config",
-  "version": "0.3.4",
-  "description": "🚀 Solve React's build-time environment variable problem! Load configuration at runtime with embedded Express server. Same Docker image works across dev/staging/production. Azure App Configuration + Key Vault + Application Insights integration included.",
+  "version": "0.4.5",
+  "description": "🚀 The Ultimate Multi-App Configuration Library! Solve React's build-time environment variable problem with enterprise-grade Azure integration and monorepo support. Same Docker image works across all environments with per-app configurations.",
   "author": "Jovani Samuels <jovani@iamjovani.com>",
   "contributors": [
     "Jovani Samuels <jovani@iamjovani.com> (Creator and Primary Author)"
@@ -49,7 +49,11 @@
     "devops",
     "deployment",
     "cloud-native",
-    "enterprise"
+    "enterprise",
+    "monorepo",
+    "multi-app",
+    "app-scoped",
+    "microservices"
   ],
   "homepage": "https://github.com/iamjovani/react-azure-config#readme",
   "repository": {
@@ -85,8 +89,16 @@
     "npm": ">=8.0.0"
   },
   "peerDependencies": {
-    "react": ">=16.8.0",
-    "react-dom": ">=16.8.0"
+    "react": ">=16.8.0 <20.0.0",
+    "react-dom": ">=16.8.0 <20.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@microsoft/applicationinsights-web": {
+      "optional": true
+    },
+    "@microsoft/applicationinsights-react-js": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@azure/app-configuration": "^1.5.0",

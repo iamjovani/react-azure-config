@@ -38,7 +38,7 @@ const clientExternal = [
 ];
 
 // Create common configuration factory
-const createConfig = (input, external, outputName, isClientBundle = false) => ({
+const createConfig = (input, external, outputName, isClientBundle = false, useCommonjs = true) => ({
   input,
   external,
   plugins: [
@@ -46,7 +46,7 @@ const createConfig = (input, external, outputName, isClientBundle = false) => ({
       browser: isClientBundle,
       preferBuiltins: !isClientBundle
     }),
-    commonjs(),
+    ...(useCommonjs ? [commonjs()] : []),
     typescript({
       tsconfig: './tsconfig.json',
       exclude: ['**/*.test.*', '**/*.spec.*'],
@@ -62,7 +62,7 @@ const createConfig = (input, external, outputName, isClientBundle = false) => ({
 module.exports = [
   // Main entry (client-safe) - ESM
   {
-    ...createConfig('src/index.ts', clientExternal, 'index', true),
+    ...createConfig('src/index.ts', clientExternal, 'index', true, false),
     output: {
       file: 'dist/index.esm.js',
       format: 'es',
@@ -70,10 +70,9 @@ module.exports = [
       exports: 'named'
     }
   },
-  
   // Main entry (client-safe) - CommonJS
   {
-    ...createConfig('src/index.ts', clientExternal, 'index', true),
+    ...createConfig('src/index.ts', clientExternal, 'index', true, true),
     output: {
       file: 'dist/index.cjs.js',
       format: 'cjs',
@@ -81,10 +80,9 @@ module.exports = [
       exports: 'named'
     }
   },
-  
   // Server entry - ESM
   {
-    ...createConfig('src/server.ts', serverExternal, 'server', false),
+    ...createConfig('src/server.ts', serverExternal, 'server', false, false),
     output: {
       file: 'dist/server.esm.js',
       format: 'es',
@@ -92,10 +90,9 @@ module.exports = [
       exports: 'named'
     }
   },
-  
   // Server entry - CommonJS
   {
-    ...createConfig('src/server.ts', serverExternal, 'server', false),
+    ...createConfig('src/server.ts', serverExternal, 'server', false, true),
     output: {
       file: 'dist/server.cjs.js',
       format: 'cjs',
@@ -103,10 +100,9 @@ module.exports = [
       exports: 'named'
     }
   },
-  
   // Client entry - ESM
   {
-    ...createConfig('src/client.ts', clientExternal, 'client', true),
+    ...createConfig('src/client.ts', clientExternal, 'client', true, false),
     output: {
       file: 'dist/client.esm.js',
       format: 'es',
@@ -115,10 +111,9 @@ module.exports = [
       inlineDynamicImports: true
     }
   },
-  
   // Client entry - CommonJS
   {
-    ...createConfig('src/client.ts', clientExternal, 'client', true),
+    ...createConfig('src/client.ts', clientExternal, 'client', true, true),
     output: {
       file: 'dist/client.cjs.js',
       format: 'cjs',
@@ -127,10 +122,9 @@ module.exports = [
       inlineDynamicImports: true
     }
   },
-  
   // Client Insights entry - ESM
   {
-    ...createConfig('src/client-insights.ts', clientExternal, 'client-insights', true),
+    ...createConfig('src/client-insights.ts', clientExternal, 'client-insights', true, false),
     output: {
       file: 'dist/client-insights.esm.js',
       format: 'es',
@@ -139,10 +133,9 @@ module.exports = [
       inlineDynamicImports: true
     }
   },
-  
   // Client Insights entry - CommonJS
   {
-    ...createConfig('src/client-insights.ts', clientExternal, 'client-insights', true),
+    ...createConfig('src/client-insights.ts', clientExternal, 'client-insights', true, true),
     output: {
       file: 'dist/client-insights.cjs.js',
       format: 'cjs',
@@ -151,10 +144,9 @@ module.exports = [
       inlineDynamicImports: true
     }
   },
-  
   // UMD build (client-only for browser)
   {
-    ...createConfig('src/index.ts', clientExternal, 'index', true),
+    ...createConfig('src/index.ts', clientExternal, 'index', true, true),
     output: {
       file: 'dist/index.umd.js',
       format: 'umd',
@@ -171,10 +163,9 @@ module.exports = [
       }
     }
   },
-  
   // Minified UMD build (client-only for browser)
   {
-    ...createConfig('src/index.ts', clientExternal, 'index', true),
+    ...createConfig('src/index.ts', clientExternal, 'index', true, true),
     output: {
       file: 'dist/index.umd.min.js',
       format: 'umd',
@@ -190,7 +181,7 @@ module.exports = [
       }
     },
     plugins: [
-      ...createConfig('src/index.ts', clientExternal, 'index', true).plugins,
+      ...createConfig('src/index.ts', clientExternal, 'index', true, true).plugins,
       terser({
         compress: {
           drop_console: isProduction,

@@ -21,8 +21,7 @@
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
+    "jsx": "react",
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {

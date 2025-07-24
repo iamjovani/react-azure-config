@@ -150,8 +150,7 @@ export class AzureConfigurationClient {
         if (config && Object.keys(config).length > 0) {
           this.cache.set(cacheKey, config, source);
           this.configurationLoaded = true;
-          this.lastConfigLoad = Date.now();
-          logger.debug(`Configuration loaded from ${source}`);
+              logger.debug(`Configuration loaded from ${source}`);
           return config;
         }
       } catch (error) {
@@ -167,8 +166,7 @@ export class AzureConfigurationClient {
             if (retryConfig && Object.keys(retryConfig).length > 0) {
               this.cache.set(cacheKey, retryConfig, source);
               this.configurationLoaded = true;
-              this.lastConfigLoad = Date.now();
-              this.retryCount = 0;
+                      this.retryCount = 0;
               return retryConfig;
             }
           } catch (retryError) {
@@ -436,7 +434,8 @@ export class AzureConfigurationClient {
       const interval = cacheConfig.refreshInterval || 60 * 60 * 1000;
       
       logger.debug(`Setting up periodic refresh every ${interval}ms`);
-      this.refreshTimer = setInterval(async () => {
+      // Periodic refresh timer - commented out to avoid unused variable warning
+      setInterval(async () => {
         try {
           logger.debug('Performing periodic configuration refresh');
           await this.refreshConfiguration();

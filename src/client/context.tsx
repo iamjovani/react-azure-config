@@ -8,7 +8,7 @@
  */
 
 // External dependencies
-import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
+import { createContext, useContext, ReactNode, useEffect, useState, createElement } from 'react';
 
 // Internal modules - client-safe only
 import { RuntimeConfigurationClient } from '../runtime-config-client';
@@ -17,6 +17,7 @@ import type { ConfigurationValue } from '../types';
 interface ConfigContextValue {
   client: RuntimeConfigurationClient | null;
   environment: string;
+  appId: string | undefined;
   config: ConfigurationValue | null;
   loading: boolean;
   error: string | undefined;
@@ -28,13 +29,15 @@ interface ConfigProviderProps {
   children: ReactNode;
   client?: RuntimeConfigurationClient;
   apiUrl?: string;
+  appId?: string;
   fetchOnMount?: boolean;
 }
 
 export const ConfigProvider: React.FC<ConfigProviderProps> = ({ 
   children, 
   client: providedClient,
-  apiUrl = '/api/config',
+  apiUrl,
+  appId,
   fetchOnMount = true
 }) => {
   // Initialize client immediately - works on both server and client
@@ -48,10 +51,24 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({
       }
     };
 
+    // Construct API URL based on appId
+    const constructApiUrl = (): string => {
+      if (apiUrl) {
+        return apiUrl; // Use provided apiUrl as-is
+      }
+      
+      if (appId) {
+        return `/api/config/${appId}`; // App-specific endpoint
+      }
+      
+      return '/api/config'; // Default endpoint (backward compatibility)
+    };
+
     return providedClient || new RuntimeConfigurationClient({
       useEmbeddedService: true,
-      configServiceUrl: apiUrl,
-      environment: getEnvironment()
+      configServiceUrl: constructApiUrl(),
+      environment: getEnvironment(),
+      appId // Pass appId to the client
     });
   });
 
@@ -81,12 +98,13 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({
   const value: ConfigContextValue = {
     client,
     environment: client?.getEnvironment() || 'unknown',
+    appId,
     config,
     loading,
     error
   };
 
-  return React.createElement(
+  return createElement(
     ConfigContext.Provider,
     { value },
     children
@@ -103,7 +121,7 @@ export const useConfigContext = (): ConfigContextValue => {
 
 // Simplified hook for config provider (no server management)
 export const useConfigProvider = () => {
-  const { client, config, loading, error, environment } = useConfigContext();
+  const { client, config, loading, error, environment, appId } = useConfigContext();
 
   const refreshConfig = async (): Promise<void> => {
     if (client) {
@@ -122,6 +140,7 @@ export const useConfigProvider = () => {
     loading,
     error,
     environment,
+    appId,
     refreshConfig,
     client
   };

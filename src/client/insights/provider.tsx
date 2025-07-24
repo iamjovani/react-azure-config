@@ -21,6 +21,10 @@ import type {
 type ApplicationInsights = any;
 type ReactPlugin = any;
 
+// Conditional import type helper for dynamic imports
+type OptionalWebModule = { ApplicationInsights?: any } | { default?: { ApplicationInsights?: any } } | null;
+type OptionalReactModule = { ReactPlugin?: any } | { default?: { ReactPlugin?: any } } | null;
+
 // Application Insights context
 const AppInsightsContext = createContext<AppInsightsContextValue | null>(null);
 
@@ -30,11 +34,11 @@ const AppInsightsContext = createContext<AppInsightsContextValue | null>(null);
  * Automatically initializes Application Insights when connection string is detected
  * in configuration, following the same pattern as service principal Key Vault integration.
  */
-export const AppInsightsProvider: React.FC<AppInsightsProviderProps> = ({ 
+export function AppInsightsProvider({ 
   children, 
   config: providedConfig,
   connectionString: overrideConnectionString 
-}) => {
+}: AppInsightsProviderProps) {
   // SSR-safe environment detection
   const [isClient, setIsClient] = useState(false);
   
@@ -71,14 +75,26 @@ export const AppInsightsProvider: React.FC<AppInsightsProviderProps> = ({
 
       // Dynamic imports to avoid bundle size issues for users who don't use App Insights
       const [
-        { ApplicationInsights },
-        { ReactPlugin }
+        webModule,
+        reactModule
       ] = await Promise.all([
-        // @ts-ignore - Optional peer dependency
-        import('@microsoft/applicationinsights-web').catch(() => ({ ApplicationInsights: null })),
-        // @ts-ignore - Optional peer dependency
-        import('@microsoft/applicationinsights-react-js').catch(() => ({ ReactPlugin: null }))
+        // @ts-expect-error - Optional peer dependency
+        import('@microsoft/applicationinsights-web').catch(() => null) as Promise<OptionalWebModule>,
+        // @ts-expect-error - Optional peer dependency
+        import('@microsoft/applicationinsights-react-js').catch(() => null) as Promise<OptionalReactModule>
       ]);
+      
+      const ApplicationInsights = webModule && ('ApplicationInsights' in webModule) 
+        ? webModule.ApplicationInsights 
+        : webModule && ('default' in webModule) 
+          ? webModule.default?.ApplicationInsights 
+          : null;
+          
+      const ReactPlugin = reactModule && ('ReactPlugin' in reactModule)
+        ? reactModule.ReactPlugin
+        : reactModule && ('default' in reactModule)
+          ? reactModule.default?.ReactPlugin
+          : null;
 
       if (!ApplicationInsights) {
         const errorMsg = 'Application Insights packages not installed. Install @microsoft/applicationinsights-web and @microsoft/applicationinsights-react-js';
@@ -192,7 +208,7 @@ export const AppInsightsProvider: React.FC<AppInsightsProviderProps> = ({
       {children}
     </AppInsightsContext.Provider>
   );
-};
+}
 
 /**
  * Hook to access Application Insights context
@@ -227,12 +243,23 @@ export const useAppInsightsAvailable = (): boolean => {
       try {
         // Try to import Application Insights packages
         const [webModule, reactModule] = await Promise.all([
-          // @ts-ignore - Optional peer dependency
-          import('@microsoft/applicationinsights-web').catch(() => null),
-          // @ts-ignore - Optional peer dependency
-          import('@microsoft/applicationinsights-react-js').catch(() => null)
+          // @ts-expect-error - Optional peer dependency
+          import('@microsoft/applicationinsights-web').catch(() => null) as Promise<OptionalWebModule>,
+          // @ts-expect-error - Optional peer dependency
+          import('@microsoft/applicationinsights-react-js').catch(() => null) as Promise<OptionalReactModule>
         ]);
-        setIsAvailable(!!(webModule && reactModule));
+        
+        const hasWebModule = !!(webModule && (
+          ('ApplicationInsights' in webModule && webModule.ApplicationInsights) ||
+          ('default' in webModule && webModule.default?.ApplicationInsights)
+        ));
+        
+        const hasReactModule = !!(reactModule && (
+          ('ReactPlugin' in reactModule && reactModule.ReactPlugin) ||
+          ('default' in reactModule && reactModule.default?.ReactPlugin)
+        ));
+        
+        setIsAvailable(hasWebModule && hasReactModule);
       } catch {
         setIsAvailable(false);
         logger.debug('Application Insights packages not available - install @microsoft/applicationinsights-web and @microsoft/applicationinsights-react-js to enable telemetry');

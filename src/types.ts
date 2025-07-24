@@ -17,9 +17,9 @@ export type TypedConfigurationValue<T = Record<string, unknown>> = {
 
 export interface AuthenticationConfig {
   type: 'servicePrincipal' | 'managedIdentity' | 'azureCli';
-  tenantId?: string;
-  clientId?: string;
-  clientSecret?: string;
+  tenantId?: string | undefined;
+  clientId?: string | undefined;
+  clientSecret?: string | undefined;
 }
 
 export interface CacheConfig {
@@ -40,11 +40,12 @@ export interface KeyVaultConfig {
 }
 
 export interface AzureConfigOptions {
-  endpoint?: string;
+  endpoint?: string | undefined;
   environment: string;
-  application?: string;
-  label?: string;
-  authentication?: AuthenticationConfig;
+  application?: string | undefined;
+  appId?: string | undefined;
+  label?: string | undefined;
+  authentication?: AuthenticationConfig | undefined;
   cache?: Partial<CacheConfig>;
   enableLocalFallback?: boolean;
   sources?: string[];

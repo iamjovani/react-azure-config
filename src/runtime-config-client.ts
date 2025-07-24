@@ -28,6 +28,7 @@ export class RuntimeConfigurationClient {
   private options: AzureConfigOptions;
   private azureClient: AzureConfigurationClient | null = null;
   private serviceUrl: string;
+  private appId: string | undefined;
 
   constructor(options: AzureConfigOptions) {
     this.options = {
@@ -39,6 +40,7 @@ export class RuntimeConfigurationClient {
       ...options
     };
     
+    this.appId = this.options.appId;
     this.cache = new ConfigurationCache(options.cache);
     this.serviceUrl = this.options.configServiceUrl || `http://localhost:${this.options.port || DEFAULT_CONSTANTS.CONFIG_SERVER_PORT}`;
     
@@ -47,8 +49,29 @@ export class RuntimeConfigurationClient {
     }
   }
 
+  private buildConfigEndpoint(): string {
+    return this.appId ? `/config/${this.appId}` : '/config';
+  }
+
+  private buildConfigValueEndpoint(key: string): string {
+    return this.appId 
+      ? `/config/${this.appId}/${encodeURIComponent(key)}`
+      : `/config/${encodeURIComponent(key)}`;
+  }
+
+  private buildRefreshEndpoint(): string {
+    return this.appId ? `/refresh/${this.appId}` : '/refresh';
+  }
+
+  private buildCacheKey(suffix: string = ''): string {
+    const environmentKey = this.appId 
+      ? `${this.appId}:${this.options.environment}`
+      : this.options.environment;
+    return suffix ? `${suffix}:${environmentKey}` : `config:${environmentKey}`;
+  }
+
   async getConfiguration(): Promise<ConfigurationValue> {
-    const cacheKey = `config:${this.options.environment}`;
+    const cacheKey = this.buildCacheKey();
     
     const cached = this.cache.get<ConfigurationValue>(cacheKey);
     if (cached) {
@@ -60,7 +83,7 @@ export class RuntimeConfigurationClient {
 
     try {
       if (this.options.useEmbeddedService) {
-        const response = await this.fetchFromService('/config');
+        const response = await this.fetchFromService(this.buildConfigEndpoint());
         config = (response.data as ConfigurationValue) || ({} as ConfigurationValue);
         source = response.source || 'api';
       } else {
@@ -82,13 +105,14 @@ export class RuntimeConfigurationClient {
     } catch (error) {
       handleError(error, ErrorType.CONFIGURATION_ERROR, {
         useEmbeddedService: this.options.useEmbeddedService,
-        serviceUrl: this.serviceUrl
+        serviceUrl: this.serviceUrl,
+        appId: this.appId
       });
       
       // Try to return stale cache
       const staleCache = this.cache.get<ConfigurationValue>(cacheKey);
       if (staleCache) {
-        logger.warn('Returning stale cached configuration due to error');
+        logger.warn('Returning stale cached configuration due to error', { appId: this.appId });
         return staleCache;
       }
 
@@ -102,14 +126,14 @@ export class RuntimeConfigurationClient {
   async getValue<T = unknown>(key: string): Promise<T | undefined> {
     try {
       if (this.options.useEmbeddedService) {
-        const response = await this.fetchFromService(`/config/${encodeURIComponent(key)}`);
+        const response = await this.fetchFromService(this.buildConfigValueEndpoint(key));
         return response.data as T;
       } else {
         const config = await this.getConfiguration();
         return getNestedProperty<T>(config, key);
       }
     } catch (error) {
-      logger.error(`Failed to get config value for key "${key}":`, error);
+      logger.error(`Failed to get config value for key "${key}":`, error, { appId: this.appId });
       return undefined;
     }
   }
@@ -117,14 +141,14 @@ export class RuntimeConfigurationClient {
   async refreshConfiguration(): Promise<void> {
     try {
       if (this.options.useEmbeddedService) {
-        await this.fetchFromService('/refresh', { method: 'POST' });
+        await this.fetchFromService(this.buildRefreshEndpoint(), { method: 'POST' });
       } else if (this.azureClient) {
         await this.azureClient.refreshConfiguration();
       }
       
       this.cache.clear();
     } catch (error) {
-      logger.error('Failed to refresh configuration:', error);
+      logger.error('Failed to refresh configuration:', error, { appId: this.appId });
       throw error;
     }
   }
@@ -168,6 +192,10 @@ export class RuntimeConfigurationClient {
 
   getEnvironment(): string {
     return this.options.environment;
+  }
+
+  getAppId(): string | undefined {
+    return this.appId;
   }
 
   getCacheStats() {

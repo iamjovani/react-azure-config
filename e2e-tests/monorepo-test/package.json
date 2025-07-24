@@ -1,0 +1,21 @@
+{
+  "name": "monorepo-test",
+  "version": "1.0.0", 
+  "description": "E2E test monorepo for react-azure-config environment variable fallback",
+  "private": true,
+  "scripts": {
+    "test:env-fallback": "node test-env-fallback.js",
+    "test:precedence": "node test-precedence-chain.js",
+    "test:no-dotenv": "node test-no-dotenv.js",
+    "test:comprehensive": "node test-comprehensive-env-validation.js",
+    "test:all": "npm run test:env-fallback && npm run test:precedence && npm run test:no-dotenv && npm run test:comprehensive",
+    "start:admin": "node apps/admin/server.js",
+    "start:client": "node apps/client/server.js"
+  },
+  "dependencies": {
+    "react-azure-config": "^0.4.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

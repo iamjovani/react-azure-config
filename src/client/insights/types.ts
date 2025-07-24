@@ -7,6 +7,8 @@
  * @module client/insights/types
  */
 
+import type { ReactNode } from 'react';
+
 // Conditional imports to handle optional peer dependencies
 type ReactPlugin = any;
 type ApplicationInsights = any;
@@ -119,7 +121,7 @@ export interface PageViewData {
  */
 export interface AppInsightsProviderProps {
   /** Child components */
-  children: React.ReactNode;
+  children: ReactNode;
   
   /** Application Insights configuration */
   config?: AppInsightsConfig;
