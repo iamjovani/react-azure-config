@@ -50,17 +50,18 @@ export class RuntimeConfigurationClient {
   }
 
   private buildConfigEndpoint(): string {
-    return this.appId ? `/config/${this.appId}` : '/config';
+    // Always call the base URL directly - let the API handle app routing internally
+    return '';
   }
 
   private buildConfigValueEndpoint(key: string): string {
-    return this.appId 
-      ? `/config/${this.appId}/${encodeURIComponent(key)}`
-      : `/config/${encodeURIComponent(key)}`;
+    // For individual values, we'll get the full config and extract the key
+    return '';
   }
 
   private buildRefreshEndpoint(): string {
-    return this.appId ? `/refresh/${this.appId}` : '/refresh';
+    // Always call the base URL directly - let the API handle app routing internally
+    return '/refresh';
   }
 
   private buildCacheKey(suffix: string = ''): string {
@@ -83,9 +84,27 @@ export class RuntimeConfigurationClient {
 
     try {
       if (this.options.useEmbeddedService) {
+        console.debug(`[react-azure-config] Fetching config from: ${this.serviceUrl}`);
         const response = await this.fetchFromService(this.buildConfigEndpoint());
-        config = (response.data as ConfigurationValue) || ({} as ConfigurationValue);
+        console.debug(`[react-azure-config] API response status: ${response.success ? 'success' : 'error'}`, response);
+        
+        // Handle different API response formats
+        if (response.config) {
+          config = response.config as ConfigurationValue;
+        } else if (response.data) {
+          config = response.data as ConfigurationValue;
+        } else {
+          config = {} as ConfigurationValue;
+        }
+        
         source = response.source || 'api';
+        
+        // If API returns empty config, try environment variable fallback
+        if (Object.keys(config).length === 0) {
+          console.debug('[react-azure-config] API returned empty config, trying environment variable fallback');
+          config = this.getEnvironmentFallback();
+          source = 'environment-fallback';
+        }
       } else {
         // Use direct Azure client (backward compatibility)
         if (!this.azureClient) {
@@ -103,6 +122,19 @@ export class RuntimeConfigurationClient {
       return config;
       
     } catch (error) {
+      console.debug('[react-azure-config] API fetch failed, activating fallback to environment variables', error);
+      
+      // Try environment variable fallback immediately on error
+      try {
+        config = this.getEnvironmentFallback();
+        source = 'environment-fallback';
+        console.debug('[react-azure-config] Successfully loaded config from environment variables', config);
+        this.cache.set(cacheKey, config, source);
+        return config;
+      } catch (envError) {
+        console.error('[react-azure-config] Environment fallback also failed', envError);
+      }
+      
       handleError(error, ErrorType.CONFIGURATION_ERROR, {
         useEmbeddedService: this.options.useEmbeddedService,
         serviceUrl: this.serviceUrl,
@@ -125,14 +157,36 @@ export class RuntimeConfigurationClient {
 
   async getValue<T = unknown>(key: string): Promise<T | undefined> {
     try {
-      if (this.options.useEmbeddedService) {
-        const response = await this.fetchFromService(this.buildConfigValueEndpoint(key));
-        return response.data as T;
-      } else {
-        const config = await this.getConfiguration();
-        return getNestedProperty<T>(config, key);
+      // Always get the full configuration and extract the key
+      // This ensures consistent behavior and proper fallback handling
+      const config = await this.getConfiguration();
+      const value = getNestedProperty<T>(config, key);
+      
+      // If no value found, try direct environment variable lookup
+      if (value === undefined) {
+        console.debug(`[react-azure-config] Key "${key}" not found in config, trying direct environment lookup`);
+        const envValue = this.getEnvironmentValue<T>(key);
+        if (envValue !== undefined) {
+          console.debug(`[react-azure-config] Found value for "${key}" in environment variables`);
+          return envValue;
+        }
       }
+      
+      return value;
     } catch (error) {
+      console.debug(`[react-azure-config] Failed to get config value for key "${key}", trying environment fallback:`, error);
+      
+      // Try direct environment variable lookup as fallback
+      try {
+        const envValue = this.getEnvironmentValue<T>(key);
+        if (envValue !== undefined) {
+          console.debug(`[react-azure-config] Successfully retrieved "${key}" from environment variables`);
+          return envValue;
+        }
+      } catch (envError) {
+        console.error(`[react-azure-config] Environment fallback failed for key "${key}":`, envError);
+      }
+      
       logger.error(`Failed to get config value for key "${key}":`, error, { appId: this.appId });
       return undefined;
     }
@@ -157,7 +211,10 @@ export class RuntimeConfigurationClient {
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<ConfigApiResponse> {
-    const url = `${this.serviceUrl}${endpoint}`;
+    // Use the serviceUrl directly without additional endpoint construction
+    const url = endpoint ? `${this.serviceUrl}${endpoint}` : this.serviceUrl;
+    
+    console.debug(`[react-azure-config] Making API request to: ${url}`);
     
     const response = await fetch(url, {
       headers: {
@@ -166,6 +223,8 @@ export class RuntimeConfigurationClient {
       },
       ...options
     });
+
+    console.debug(`[react-azure-config] API response status: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       throw handleError(
@@ -186,6 +245,62 @@ export class RuntimeConfigurationClient {
     }
 
     return data;
+  }
+
+  /**
+   * Get environment variable fallback configuration
+   */
+  private getEnvironmentFallback(): ConfigurationValue {
+    const config: ConfigurationValue = {};
+    
+    // Try to get common configuration keys from environment variables
+    const commonKeys = [
+      'NEXTAUTH_SECRET',
+      'OKTA_CLIENT_ID', 
+      'OKTA_CLIENT_SECRET',
+      'OKTA_ISSUER',
+      'SGJ_INVESTMENT_BASE_URL',
+      'API_URL',
+      'DATABASE_URL'
+    ];
+    
+    commonKeys.forEach(key => {
+      const value = this.getEnvironmentValue(key);
+      if (value !== undefined) {
+        // Convert to nested property format (e.g., 'OKTA_CLIENT_ID' -> 'okta.client.id')
+        const nestedKey = key.toLowerCase().replace(/_/g, '.');
+        config[nestedKey] = value;
+        config[key] = value; // Also keep original format for compatibility
+      }
+    });
+    
+    return config;
+  }
+  
+  /**
+   * Get individual environment variable value with proper prefixing
+   */
+  private getEnvironmentValue<T = unknown>(key: string): T | undefined {
+    if (typeof process === 'undefined') {
+      return undefined;
+    }
+    
+    const patterns = [
+      key, // Direct key
+      `REACT_APP_${key}`, // React app prefix
+      this.appId ? `REACT_APP_${this.appId.toUpperCase()}_${key}` : null, // App-specific
+      this.appId ? `${this.appId.toUpperCase()}_${key}` : null // App-specific without REACT_APP
+    ].filter(Boolean) as string[];
+    
+    for (const pattern of patterns) {
+      const value = process.env[pattern];
+      if (value !== undefined) {
+        console.debug(`[react-azure-config] Found environment variable: ${pattern}=${value}`);
+        return value as T;
+      }
+    }
+    
+    return undefined;
   }
 
 

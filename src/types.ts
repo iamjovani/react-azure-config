@@ -82,6 +82,7 @@ export interface ConfigSourceHierarchy {
 export interface ConfigApiResponse<T = unknown> {
   success: boolean;
   data?: T;
+  config?: ConfigurationValue; // API responses may include config field
   error?: string;
   source?: string;
   timestamp: number;
