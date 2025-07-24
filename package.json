@@ -1,6 +1,6 @@
 {
   "name": "react-azure-config",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "🚀 The Ultimate Multi-App Configuration Library! Solve React's build-time environment variable problem with enterprise-grade Azure integration and monorepo support. Same Docker image works across all environments with per-app configurations.",
   "author": "Jovani Samuels <jovani@iamjovani.com>",
   "contributors": [
