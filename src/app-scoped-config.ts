@@ -599,9 +599,24 @@ export class AppScopedConfigurationProvider {
         return {};
       }
 
-      const config = await azureClient.getConfiguration();
+      const rawConfig = await azureClient.getConfiguration();
+      if (!rawConfig) {
+        return {};
+      }
+
+      // Normalize Azure configuration keys to match environment variable transformation
+      const normalizedConfig: ConfigurationValue = {};
+      Object.entries(rawConfig).forEach(([key, value]) => {
+        // Transform Azure keys to match environment variable key format
+        // Simply replace dots with nothing (no underscores) to match env var transformation
+        const normalizedKey = key.replace(/\./g, '');
+        
+        // Only use the normalized key to ensure Azure wins over env vars
+        normalizedConfig[normalizedKey] = value;
+      });
+
       logger.debug(`Loaded Azure configuration for app "${appId}"`);
-      return config || {};
+      return normalizedConfig;
       
     } catch (error) {
       logger.warn(`Failed to load Azure configuration for app "${appId}":`, error);

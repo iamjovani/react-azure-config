@@ -38,34 +38,108 @@ export const useConfig = <T = ConfigurationValue>(): ConfigResult<T> => {
 };
 
 export const useConfigValue = <T = unknown>(key: string, defaultValue?: T): T | undefined => {
-  const { config, loading } = useConfigContext();
+  const { config, loading, appId } = useConfigContext();
   
   // If still loading, return defaultValue
   if (loading) {
     return defaultValue;
   }
   
-  // If we have config data, extract the value
+  // If we have config data, extract the value with enhanced resolution
   if (config) {
-    // Try direct key access first
-    let value = config[key] as T;
+    console.debug(`[react-azure-config] Looking for key "${key}" in config with ${Object.keys(config).length} total keys`);
     
-    // If not found, try nested property access (e.g., 'okta.client.id')
-    if (value === undefined) {
-      const nestedKey = key.toLowerCase().replace(/_/g, '.');
-      value = getNestedProperty<T>(config, nestedKey);
+    // Try multiple resolution strategies
+    const strategies = [
+      // Strategy 1: Direct key access
+      () => config[key] as T,
+      
+      // Strategy 2: Nested property access (okta.client.id)
+      () => {
+        const nestedKey = key.toLowerCase().replace(/_/g, '.');
+        return getNestedProperty<T>(config, nestedKey);
+      },
+      
+      // Strategy 3: Remove REACT_APP prefix and try nested
+      () => {
+        const cleanKey = key.replace(/^REACT_APP_/, '').toLowerCase().replace(/_/g, '.');
+        return getNestedProperty<T>(config, cleanKey);
+      },
+      
+      // Strategy 4: Remove app-specific prefix and try nested
+      () => {
+        if (appId) {
+          const appPrefix = `${appId.toUpperCase().replace(/-/g, '_')}_`;
+          if (key.startsWith(appPrefix)) {
+            const cleanKey = key.substring(appPrefix.length).toLowerCase().replace(/_/g, '.');
+            return getNestedProperty<T>(config, cleanKey);
+          }
+        }
+        return undefined;
+      },
+      
+      // Strategy 5: Try common key transformations
+      () => {
+        const transformations = [
+          key.toLowerCase(),
+          key.toLowerCase().replace(/_/g, ''),
+          key.toLowerCase().replace(/_/g, '.'),
+          key.replace(/^REACT_APP_[A-Z_]+_/, '').toLowerCase(),
+          key.replace(/^[A-Z_]+_/, '').toLowerCase()
+        ];
+        
+        for (const transformed of transformations) {
+          const value = config[transformed] as T;
+          if (value !== undefined) {
+            return value;
+          }
+          // Also try nested access
+          const nested = getNestedProperty<T>(config, transformed);
+          if (nested !== undefined) {
+            return nested;
+          }
+        }
+        return undefined;
+      },
+      
+      // Strategy 6: Partial key matching (last resort)
+      () => {
+        const lowerKey = key.toLowerCase();
+        const configKeys = Object.keys(config);
+        
+        // Find keys that contain the search term
+        const matchingKey = configKeys.find(configKey => {
+          const lowerConfigKey = configKey.toLowerCase();
+          return lowerConfigKey.includes(lowerKey) || lowerKey.includes(lowerConfigKey);
+        });
+        
+        if (matchingKey) {
+          console.debug(`[react-azure-config] Found partial match: "${key}" -> "${matchingKey}"`);
+          return config[matchingKey] as T;
+        }
+        return undefined;
+      }
+    ];
+    
+    // Try each strategy until we find a value
+    for (let i = 0; i < strategies.length; i++) {
+      try {
+        const value = strategies[i]();
+        if (value !== undefined) {
+          if (i > 0) {
+            console.debug(`[react-azure-config] Found value for "${key}" using strategy ${i + 1}`);
+          }
+          return value;
+        }
+      } catch (error) {
+        console.debug(`[react-azure-config] Strategy ${i + 1} failed for key "${key}":`, error);
+      }
     }
     
-    // If still not found, try with app-specific prefix removal
-    if (value === undefined) {
-      const cleanKey = key.replace(/^REACT_APP_/, '').toLowerCase().replace(/_/g, '.');
-      value = getNestedProperty<T>(config, cleanKey);
-    }
-    
-    return value !== undefined ? value : defaultValue;
+    console.debug(`[react-azure-config] No value found for "${key}" in config. Available keys:`, Object.keys(config));
   }
   
-  // Return default if no config available
+  // Return default if no config available or no value found
   return defaultValue;
 };
 

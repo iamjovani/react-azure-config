@@ -1,7 +1,7 @@
 {
   "name": "react-azure-config",
-  "version": "0.4.7",
-  "description": "🚀 The Ultimate Multi-App Configuration Library! Solve React's build-time environment variable problem with enterprise-grade Azure integration and monorepo support. Same Docker image works across all environments with per-app configurations.",
+  "version": "0.5.0",
+  "description": "🚀 The Ultimate Multi-App Configuration Library! CRITICAL BUG FIXES: Prefixed environment keys no longer sent to Azure. Complete architectural redesign with bulletproof fallback system. Enterprise-grade Azure integration and monorepo support.",
   "author": "Jovani Samuels <jovani@iamjovani.com>",
   "contributors": [
     "Jovani Samuels <jovani@iamjovani.com> (Creator and Primary Author)"
@@ -53,7 +53,12 @@
     "monorepo",
     "multi-app",
     "app-scoped",
-    "microservices"
+    "microservices",
+    "bug-fixes",
+    "critical-fixes",
+    "bulletproof-fallback",
+    "key-transformation",
+    "react-hooks-fix"
   ],
   "homepage": "https://github.com/iamjovani/react-azure-config#readme",
   "repository": {
@@ -82,7 +87,9 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build:prod",
     "pack:check": "npm pack --dry-run",
-    "validate": "npm run lint:check && npm run type-check && npm run test"
+    "validate": "npm run lint:check && npm run type-check && npm run test",
+    "test:bug-fix": "node validate-bug-fixes.js",
+    "test:comprehensive": "npm run test -- comprehensive-bug-fix-validation.test.ts"
   },
   "engines": {
     "node": ">=16.0.0",

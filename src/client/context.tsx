@@ -80,20 +80,36 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({
   useEffect(() => {
     if (!fetchOnMount) return;
 
+    console.debug(`[react-azure-config] ConfigProvider fetching configuration for app "${appId}"`);
     setLoading(true);
+    
     client.getConfiguration()
       .then((configData) => {
+        console.debug(`[react-azure-config] ConfigProvider received configuration for app "${appId}":`, {
+          keysReceived: Object.keys(configData || {}).length,
+          keys: Object.keys(configData || {}),
+          serviceUrl: client.getServiceUrl()
+        });
+        
         setConfig(configData);
         setError(undefined);
       })
       .catch((err) => {
-        console.error('Failed to load configuration:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load configuration');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load configuration';
+        console.error(`[react-azure-config] ConfigProvider failed to load configuration for app "${appId}":`, err);
+        console.debug(`[react-azure-config] Error details:`, {
+          appId,
+          serviceUrl: client.getServiceUrl(),
+          isUsingEmbeddedService: client.isUsingEmbeddedService(),
+          error: errorMessage
+        });
+        
+        setError(errorMessage);
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [client, fetchOnMount]);
+  }, [client, fetchOnMount, appId]);
 
   const value: ConfigContextValue = {
     client,

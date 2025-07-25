@@ -286,6 +286,144 @@ export class AzureEnvironmentLoader {
 
     return {};
   }
+
+  /**
+   * Get configuration formatted for HTTP API responses
+   * This method provides proper error handling and response formatting for API routes
+   */
+  async getConfigurationForApi(): Promise<{ success: boolean; data?: Record<string, any>; source: string; error?: string }> {
+    try {
+      const config = await this.getConfiguration();
+      
+      if (!config || Object.keys(config).length === 0) {
+        // Try environment variable fallback
+        const envFallback = this.getEnvironmentFallback();
+        if (Object.keys(envFallback).length > 0) {
+          return {
+            success: true,
+            data: envFallback,
+            source: 'environment-fallback'
+          };
+        }
+        
+        return {
+          success: true,
+          data: {},
+          source: 'empty'
+        };
+      }
+
+      const sourceType = this.appScopedProvider ? 'app-scoped' : 'azure';
+      return {
+        success: true,
+        data: config,
+        source: sourceType
+      };
+      
+    } catch (error) {
+      logger.error(`Failed to get configuration for API response (app: ${this.options.appId}):`, error);
+      
+      // Try environment fallback on error
+      try {
+        const envFallback = this.getEnvironmentFallback();
+        return {
+          success: true,
+          data: envFallback,
+          source: 'error-fallback'
+        };
+      } catch (fallbackError) {
+        return {
+          success: false,
+          source: 'error',
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    }
+  }
+
+  /**
+   * Get environment variable fallback configuration
+   */
+  private getEnvironmentFallback(): Record<string, any> {
+    const config: Record<string, any> = {};
+    const appId = this.options.appId;
+    
+    if (!appId) {
+      return config;
+    }
+
+    const appIdUpper = appId.toUpperCase().replace(/-/g, '_');
+    
+    // Search for app-specific variables
+    const appPrefix = `REACT_APP_${appIdUpper}_`;
+    Object.keys(process.env).forEach(key => {
+      if (key.startsWith(appPrefix)) {
+        const value = process.env[key];
+        if (value !== undefined) {
+          // Transform key: REACT_APP_ADMIN_NEXTAUTH_SECRET -> nextauth.secret
+          const transformedKey = key
+            .substring(appPrefix.length)
+            .toLowerCase()
+            .replace(/_/g, '.');
+          config[transformedKey] = value;
+          config[key] = value; // Also keep original format
+        }
+      }
+    });
+
+    // Also search for generic variables
+    Object.keys(process.env).forEach(key => {
+      if (key.startsWith('REACT_APP_') && !key.startsWith(appPrefix)) {
+        const value = process.env[key];
+        if (value !== undefined) {
+          const transformedKey = key
+            .substring('REACT_APP_'.length)
+            .toLowerCase()
+            .replace(/_/g, '.');
+          if (!config[transformedKey]) { // Don't override app-specific vars
+            config[transformedKey] = value;
+            config[key] = value;
+          }
+        }
+      }
+    });
+
+    logger.debug(`Environment fallback for app "${appId}": ${Object.keys(config).length} variables`);
+    return config;
+  }
+
+  /**
+   * Get specific configuration value with fallback
+   */
+  async getConfigurationValue(key: string): Promise<{ success: boolean; value?: any; source: string; error?: string }> {
+    try {
+      const configResponse = await this.getConfigurationForApi();
+      
+      if (!configResponse.success || !configResponse.data) {
+        return {
+          success: false,
+          source: configResponse.source,
+          error: configResponse.error || 'No configuration available'
+        };
+      }
+
+      // Try to get nested value
+      const value = this.getNestedValue(configResponse.data, key);
+      
+      return {
+        success: true,
+        value,
+        source: configResponse.source
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        source: 'error',
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
 }
 
 /**
@@ -301,8 +439,21 @@ export async function loadAzureToProcessEnv(options: AzureEnvLoaderOptions = {})
 
 /**
  * Create an Azure environment loader for a specific app
+ * @deprecated Use createAppAzureLoader from api-route-helpers for API route integration
  */
 export function createAppAzureLoader(appId: string, options: Omit<AzureEnvLoaderOptions, 'appId'> = {}): AzureEnvironmentLoader {
+  return new AzureEnvironmentLoader({
+    ...options,
+    appId
+  });
+}
+
+/**
+ * Create an enhanced Azure environment loader for API routes
+ * This supports both environment loading and HTTP API serving
+ */
+export function createAppAzureLoaderForApi(appId: string, options: Omit<AzureEnvLoaderOptions, 'appId'> = {}): AzureEnvironmentLoader {
+  logger.debug(`Creating Azure environment loader for API use: app "${appId}"`);
   return new AzureEnvironmentLoader({
     ...options,
     appId

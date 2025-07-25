@@ -123,9 +123,9 @@ async function testEnvironmentVariablesOnly() {
     console.log(`  ✓ Client API URL: ${clientApiUrl} ${clientApiUrl === 'https://client-env-only-api.example.com' ? '✅' : '❌'}`);
     console.log(`  ✓ Client NextAuth Secret: ${clientNextAuthSecret} ${clientNextAuthSecret === 'client-env-only-nextauth-secret' ? '✅' : '❌'}`);
     
-    // Test generic configuration (no specific app)
+    // Test generic configuration (no specific app - use default)
     console.log('\n🌐 Testing Generic Configuration');
-    const genericConfig = await provider.getAppConfiguration();
+    const genericConfig = await provider.getAppConfiguration('default');
     
     const genericApiUrl = genericConfig.apiurl || genericConfig['api.url'];
     const genericNextAuthSecret = genericConfig.nextauthsecret || genericConfig['nextauth.secret'];
@@ -164,7 +164,7 @@ async function testEnvironmentVariablesOnly() {
   console.log('\n❓ Step 6: Testing Missing Environment Variables');
   
   try {
-    const testConfig = await provider.getAppConfiguration('test');
+    const testConfig = await provider.getAppConfiguration('nonexistent');
     const missingValue = testConfig.nonexistentkey || testConfig['nonexistent.key'];
     
     console.log(`  ✓ Missing key returns undefined: ${missingValue === undefined ? '✅' : '❌'}`);

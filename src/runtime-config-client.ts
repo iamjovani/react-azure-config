@@ -104,6 +104,13 @@ export class RuntimeConfigurationClient {
           console.debug('[react-azure-config] API returned empty config, trying environment variable fallback');
           config = this.getEnvironmentFallback();
           source = 'environment-fallback';
+          
+          // Log fallback results
+          console.debug(`[react-azure-config] Environment fallback provided ${Object.keys(config).length} variables for app "${this.appId}"`);
+          
+          if (Object.keys(config).length === 0) {
+            console.warn(`[react-azure-config] No configuration found from API or environment fallback for app "${this.appId}"`);
+          }
         }
       } else {
         // Use direct Azure client (backward compatibility)
@@ -122,17 +129,24 @@ export class RuntimeConfigurationClient {
       return config;
       
     } catch (error) {
-      console.debug('[react-azure-config] API fetch failed, activating fallback to environment variables', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.debug(`[react-azure-config] API fetch failed for app "${this.appId}": ${errorMessage}. Activating fallback to environment variables.`);
       
       // Try environment variable fallback immediately on error
       try {
         config = this.getEnvironmentFallback();
         source = 'environment-fallback';
-        console.debug('[react-azure-config] Successfully loaded config from environment variables', config);
-        this.cache.set(cacheKey, config, source);
-        return config;
+        
+        if (Object.keys(config).length > 0) {
+          console.debug(`[react-azure-config] Successfully loaded ${Object.keys(config).length} variables from environment fallback for app "${this.appId}"`);
+          this.cache.set(cacheKey, config, source);
+          return config;
+        } else {
+          console.warn(`[react-azure-config] Environment fallback returned no variables for app "${this.appId}"`);
+        }
       } catch (envError) {
-        console.error('[react-azure-config] Environment fallback also failed', envError);
+        const envErrorMessage = envError instanceof Error ? envError.message : String(envError);
+        console.error(`[react-azure-config] Environment fallback also failed for app "${this.appId}": ${envErrorMessage}`);
       }
       
       handleError(error, ErrorType.CONFIGURATION_ERROR, {
@@ -253,7 +267,48 @@ export class RuntimeConfigurationClient {
   private getEnvironmentFallback(): ConfigurationValue {
     const config: ConfigurationValue = {};
     
-    // Try to get common configuration keys from environment variables
+    // Enhanced patterns for environment variable discovery
+    const patterns = [
+      // App-specific patterns (highest priority)
+      this.appId ? `REACT_APP_${this.appId.toUpperCase().replace(/-/g, '_')}_` : null,
+      this.appId ? `${this.appId.toUpperCase().replace(/-/g, '_')}_` : null,
+      // Generic React app variables
+      'REACT_APP_',
+      // Common service patterns
+      'NEXTAUTH_',
+      'OKTA_',
+      'AZURE_',
+      'AUTH_',
+      'API_',
+      'DATABASE_',
+      'SGJ_'
+    ].filter(Boolean) as string[];
+
+    // Search process.env for matching patterns
+    Object.keys(process.env).forEach(key => {
+      const value = process.env[key];
+      if (value !== undefined) {
+        const matchesPattern = patterns.some(pattern => key.startsWith(pattern));
+        if (matchesPattern) {
+          // Transform the key for better accessibility
+          const transformedKey = this.transformEnvironmentKey(key);
+          config[transformedKey] = value;
+          config[key] = value; // Also keep original format
+          
+          // Also create a simplified version for common keys
+          if (key.includes('NEXTAUTH_SECRET')) {
+            config['nextauth.secret'] = value;
+            config['nextauthsecret'] = value;
+          }
+          if (key.includes('OKTA_CLIENT_ID')) {
+            config['okta.client.id'] = value;
+            config['oktaclientid'] = value;
+          }
+        }
+      }
+    });
+
+    // Add common hardcoded keys that might be expected
     const commonKeys = [
       'NEXTAUTH_SECRET',
       'OKTA_CLIENT_ID', 
@@ -265,16 +320,53 @@ export class RuntimeConfigurationClient {
     ];
     
     commonKeys.forEach(key => {
-      const value = this.getEnvironmentValue(key);
-      if (value !== undefined) {
-        // Convert to nested property format (e.g., 'OKTA_CLIENT_ID' -> 'okta.client.id')
-        const nestedKey = key.toLowerCase().replace(/_/g, '.');
-        config[nestedKey] = value;
-        config[key] = value; // Also keep original format for compatibility
+      if (!config[key]) {
+        const value = this.getEnvironmentValue(key);
+        if (value !== undefined) {
+          const nestedKey = key.toLowerCase().replace(/_/g, '.');
+          config[nestedKey] = value;
+          config[key] = value;
+        }
       }
     });
-    
+
+    console.debug(`[react-azure-config] Environment fallback loaded ${Object.keys(config).length} variables:`, Object.keys(config));
     return config;
+  }
+
+  /**
+   * Transform environment variable key to multiple accessible formats
+   */
+  private transformEnvironmentKey(key: string): string {
+    let result = key;
+    
+    // Remove app-specific prefixes first
+    if (this.appId) {
+      const appIdUpper = this.appId.toUpperCase().replace(/-/g, '_');
+      const appPrefixes = [
+        `REACT_APP_${appIdUpper}_`,
+        `${appIdUpper}_`
+      ];
+      
+      for (const prefix of appPrefixes) {
+        if (result.startsWith(prefix)) {
+          result = result.substring(prefix.length);
+          break;
+        }
+      }
+    }
+    
+    // Remove generic prefixes
+    const genericPrefixes = ['REACT_APP_'];
+    for (const prefix of genericPrefixes) {
+      if (result.startsWith(prefix)) {
+        result = result.substring(prefix.length);
+        break;
+      }
+    }
+    
+    // Convert to lowercase and replace underscores with dots
+    return result.toLowerCase().replace(/_/g, '.');
   }
   
   /**
